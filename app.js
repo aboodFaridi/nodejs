@@ -1,21 +1,29 @@
-const express = require('express');
-const path = require('path');
-const indexRouter = require('./routes/index');
+const WebSocket = require('ws');
 
-const app = express();
-const PORT = 3000;
+// سرور WebSocket برای کلاینت‌هایی که به هاست وصل می‌شن
+const server = new WebSocket.Server({ port: process.env.PORT || 3000 });
 
-// Serve static files from the "public" directory
-app.use(express.static(path.join(__dirname, 'public')));
+server.on('connection', clientSocket => {
+    console.log('Client connected.');
 
-// Use the router for handling routes
-app.use('/', indexRouter);
+    // اتصال به سرور واقعی WebSocket/VPN شما
+    const remoteSocket = new WebSocket('wss://88.99.250.174:8080');
 
-// Catch-all route for handling 404 errors
-app.use((req, res, next) => {
-    res.status(404).sendFile(path.join(__dirname, 'views', '404.html'));
-  });
+    // Relay: کلاینت → سرور اصلی
+    clientSocket.on('message', msg => {
+        if (remoteSocket.readyState === WebSocket.OPEN) {
+            remoteSocket.send(msg);
+        }
+    });
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}/`);
+    // Relay: سرور اصلی → کلاینت
+    remoteSocket.on('message', msg => {
+        if (clientSocket.readyState === WebSocket.OPEN) {
+            clientSocket.send(msg);
+        }
+    });
+
+    // مدیریت اتصال
+    clientSocket.on('close', () => remoteSocket.close());
+    remoteSocket.on('close', () => clientSocket.close());
 });
