@@ -1,29 +1,41 @@
 const WebSocket = require('ws');
 
-// سرور WebSocket برای کلاینت‌هایی که به هاست وصل می‌شن
-const server = new WebSocket.Server({ port: process.env.PORT || 3000 });
+// پورت Railway رو از ENV می‌گیره، یا به صورت لوکال 3000
+const PORT = process.env.PORT || 3000;
+const TARGET = 'wss://your-vps-server.com:8080'; // ← آدرس WebSocket مقصد خودت
 
-server.on('connection', clientSocket => {
-    console.log('Client connected.');
+const server = new WebSocket.Server({ port: PORT });
 
-    // اتصال به سرور واقعی WebSocket/VPN شما
-    const remoteSocket = new WebSocket('wss://88.99.250.174:8080');
+console.log(`WebSocket proxy server running on port ${PORT}`);
 
-    // Relay: کلاینت → سرور اصلی
-    clientSocket.on('message', msg => {
-        if (remoteSocket.readyState === WebSocket.OPEN) {
-            remoteSocket.send(msg);
-        }
+server.on('connection', client => {
+  console.log('Client connected.');
+
+  const target = new WebSocket(TARGET);
+
+  target.on('open', () => {
+    // Relay: client → target
+    client.on('message', msg => {
+      if (target.readyState === WebSocket.OPEN) {
+        target.send(msg);
+      }
     });
 
-    // Relay: سرور اصلی → کلاینت
-    remoteSocket.on('message', msg => {
-        if (clientSocket.readyState === WebSocket.OPEN) {
-            clientSocket.send(msg);
-        }
+    // Relay: target → client
+    target.on('message', msg => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(msg);
+      }
     });
+  });
 
-    // مدیریت اتصال
-    clientSocket.on('close', () => remoteSocket.close());
-    remoteSocket.on('close', () => clientSocket.close());
+  client.on('close', () => {
+    console.log('Client disconnected.');
+    target.close();
+  });
+
+  target.on('close', () => {
+    console.log('Target server closed.');
+    client.close();
+  });
 });
