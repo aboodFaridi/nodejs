@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 
 // پورت Railway رو از ENV می‌گیره، یا به صورت لوکال 3000
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 const TARGET = 'ws://88.99.250.174:8080'; // ← آدرس WebSocket مقصد خودت
 
 const server = new WebSocket.Server({ port: PORT });
